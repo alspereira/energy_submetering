@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx" creationComplete="windowedapplication1_creationCompleteHandler(event)">
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import api.groundtruth.config.HTTPServiceConfig;
+			import api.groundtruth.events.HTTPSensorServiceAvailable;
+			import api.groundtruth.events.HTTPSensorServiceData;
+			import api.groundtruth.events.HTTPSensorServiceUnavailable;
+			import api.groundtruth.sensors.SensorNetworkManager;
+			import api.groundtruth.services.HTTPSensorService;
+			import api.groundtruth.services.IServerResponseParser;
+			import api.groundtruth.services.SailwiderServerResponseParser;
+			
+			import mx.events.FlexEvent;
+			
+			private var service:HTTPSensorService;
+			private var config:HTTPServiceConfig;
+			private var responseParser:IServerResponseParser;
+			[Bindable] private var sensorNetworkManager:SensorNetworkManager;
+			
+			
+			protected function windowedapplication1_creationCompleteHandler(event:FlexEvent):void {
+				config = new HTTPServiceConfig;
+				config.SERVER_BASE_URL = "http://192.168.10.45";
+				config.SERVICE_URL = "table.xml";
+				config.ECHO_URL = "timenow.xml";
+				config.QUERY_TIME_INTERVAL = 1000;
+				responseParser = new SailwiderServerResponseParser;
+				sensorNetworkManager = new SensorNetworkManager();
+				service = new HTTPSensorService(config, responseParser);
+				service.addEventListener(HTTPSensorServiceAvailable.ON_HTTP_SENSOR_SERVICE_AVAILABLE, handleSensorService);
+				service.addEventListener(HTTPSensorServiceUnavailable.ON_HTTP_SENSOR_SERVICE_UNAVAILABLE, handleSensorService);
+				service.addEventListener(HTTPSensorServiceData.ON_HTTP_SENSOR_SERVICE_DATA, handleSensorService);
+				service.start();				
+			}
+			
+			private function handleSensorService(event:Event):void {
+				
+				if(event.type == HTTPSensorServiceData.ON_HTTP_SENSOR_SERVICE_DATA) {
+					sensorNetworkManager.updateSensorNetwork(HTTPSensorServiceData(event).getSensorData());
+				}
+				else {
+					trace(event.type);
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<s:Label width="119" height="31" text="{sensorNetworkManager.sensors.length}"/>
+	<mx:DataGrid id="dataGrid" y="39" width="100%" height="235"
+				 dataProvider="{sensorNetworkManager.sensors}" verticalGridLines="false"
+				 verticalScrollPolicy="on" selectedIndex="0">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Sensor Id" dataField="sensor_id"/>
+			<mx:DataGridColumn headerText="Timestamp" dataField="timestamp"/>
+			<mx:DataGridColumn headerText="Delta P" dataField="power_usage"/>
+		</mx:columns>
+	</mx:DataGrid>
+	<mx:LineChart id="linechart1" x="39" y="276" width="1199" height="295" dataProvider="{sensorNetworkManager.sensors.getItemAt(dataGrid.selectedIndex).history}">
+		<mx:series>
+			<mx:LineSeries displayName="Series 1" yField="power_usage" />
+		</mx:series>
+	</mx:LineChart>
+</s:WindowedApplication>
